@@ -66,8 +66,10 @@ def build_models(seed: int = 0) -> dict:
         "logreg": make_pipeline(StandardScaler(), LogisticRegression(max_iter=2000)),
         "mlp": make_pipeline(
             StandardScaler(),
+            # No early_stopping: it breaks with string labels in some scikit-learn
+            # versions; the L2 penalty (alpha) regularizes this small network instead.
             MLPClassifier(hidden_layer_sizes=(128, 64), alpha=1e-3, max_iter=800,
-                          early_stopping=True, random_state=seed),
+                          random_state=seed),
         ),
     }
 

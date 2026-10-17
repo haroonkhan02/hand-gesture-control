@@ -1,49 +1,44 @@
 <div align="center">
 
-# ✋ Hand Gesture Control
+# Hand Gesture Control
 
-**Control your computer without touching it — mouse, slides and an air-drawing whiteboard, driven by real-time hand tracking and a gesture classifier trained on your own data.**
+Control a computer without touching it: a gesture mouse, a slide remote and an air-drawing whiteboard, driven by real-time hand tracking and a classifier trained on your own recordings.
 
 [![CI](https://github.com/haroonkhan02/hand-gesture-control/actions/workflows/ci.yml/badge.svg)](https://github.com/haroonkhan02/hand-gesture-control/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![MediaPipe](https://img.shields.io/badge/MediaPipe-Hand%20Landmarker-orange)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
 </div>
 
-<!-- Demo: record with `gesture-control` and save as assets/demo.gif -->
 <!-- <p align="center"><img src="assets/demo.gif" width="720" alt="demo"></p> -->
 
----
+## What it does
 
-## Highlights
-
-- **Three modes in one app** — gesture mouse (move / click / drag / scroll / right-click), presentation remote (swipe to change slides), and an air-drawing whiteboard.
-- **Custom-trained classifier** — record your own gestures, train an MLP on normalized 3D landmarks, and compare it against a rule-based baseline with an honest, *session-level* train/test split.
-- **Smooth & stable** — One Euro filtering removes cursor jitter without adding lag; temporal debouncing stops single-frame misclassifications from firing clicks.
-- **Fast** — ~8 ms per frame for hand tracking on an Apple M5 CPU (>100 FPS processing throughput); classification adds < 0.1 ms.
-- **Tested** — geometry, filtering, controllers and the training pipeline are unit-tested with synthetic hand poses and a fake input backend; CI runs on every push.
+- Tracks one hand from a webcam (21 3D landmarks per frame) and recognises six static gestures.
+- Mouse mode: move, click, drag, scroll and right-click. Slides mode: swipe to change slides. Draw mode: an air-drawing canvas over the video.
+- Lets you record your own gesture data and train an MLP on it, compared against a rule-based baseline.
+- Smooths the cursor with a One Euro filter and debounces gestures so a single bad frame can't fire a click.
 
 ## Gestures
 
-| Gesture | 🖱️ Mouse mode | 📊 Slides mode | 🎨 Draw mode |
+| Gesture | Mouse mode | Slides mode | Draw mode |
 |---|---|---|---|
-| ☝️ `point` | Move cursor | — | Draw |
-| 🤏 `pinch` | Hold left button (click / drag) | — | — |
-| ✌️ `peace` | Scroll (move hand up/down) | — | Pen up (move without drawing) |
-| 👍 `thumbs_up` | Right click | — | — |
-| ✋ `open_palm` | Pause cursor | Swipe ← next · Swipe → previous | Erase |
-| ✊ `fist` | Pause cursor (re-centre your hand) | Black screen on/off | — |
+| `point` | Move cursor | | Draw |
+| `pinch` | Hold left button (click / drag) | | |
+| `peace` | Scroll (move hand up/down) | | Pen up |
+| `thumbs_up` | Right click | | |
+| `open_palm` | Pause cursor | Swipe left: next, right: previous | Erase |
+| `fist` | Pause cursor (re-centre hand) | Black screen on/off | |
 
-**Keyboard:** `M` switch mode · `P` pause · `C` clear canvas · `K` next colour · `S` save drawing · `Q` quit
+Keys: `M` switch mode, `P` pause, `C` clear canvas, `K` next colour, `S` save drawing, `Q` quit.
 
 ## How it works
 
 ```mermaid
 flowchart LR
     A[Webcam frame] --> B[MediaPipe<br/>Hand Landmarker]
-    B -->|21 × 3D landmarks| C[Normalize<br/>translate · mirror · scale]
+    B -->|21 × 3D landmarks| C[Normalise<br/>translate · mirror · scale]
     C --> D{Classifier}
     D -->|rules baseline| E[Debouncer<br/>N stable frames]
     D -->|trained MLP| E
@@ -53,97 +48,81 @@ flowchart LR
     F --> I[Whiteboard<br/>canvas overlay]
 ```
 
-1. **Tracking** — MediaPipe's Hand Landmarker finds the hand and regresses 21 keypoints per frame; in video mode it tracks between frames instead of re-detecting.
-2. **Normalization** — landmarks are shifted so the wrist is the origin, left hands are mirrored onto right hands, and everything is divided by palm size. The classifier sees the hand's *shape*, not where it is or how far away.
-3. **Classification** — either geometry rules (finger extended/curled tests) or a trained MLP with a confidence threshold that returns `none` when unsure.
-4. **Debouncing** — a gesture must persist for N frames before it becomes active.
-5. **Control** — the cursor follows the **index knuckle** rather than the fingertip, so pinching to click doesn't knock the cursor off target. A One Euro filter smooths the position, heavily when still and lightly when moving fast.
+Landmarks are shifted so the wrist is the origin, left hands are mirrored onto right hands, and everything is divided by palm size, so the classifier sees the hand's shape rather than its position or distance. The classifier returns `none` below a confidence threshold, and a gesture must hold for N frames before it becomes active.
 
-## Repository structure
+## Results
 
-```text
-hand-gesture-control/
-├── src/gesture_control/
-│   ├── app.py            # Main app: webcam loop, modes, HUD
-│   ├── tracking.py       # MediaPipe Hand Landmarker wrapper
-│   ├── features.py       # Landmark normalization & finger geometry
-│   ├── gestures.py       # Rule-based + learned classifiers, debouncer
-│   ├── filters.py        # One Euro filter
-│   ├── controllers.py    # Mouse & presentation controllers, swipe detector
-│   ├── whiteboard.py     # Air-drawing canvas
-│   ├── hud.py            # On-screen overlay & FPS counter
-│   ├── dataset.py        # Landmark CSV read/write
-│   ├── collect.py        # Record labelled gesture samples
-│   ├── train.py          # Train + evaluate classifiers, write report
-│   ├── benchmark.py      # Per-stage latency benchmark
-│   ├── download.py       # Fetch the MediaPipe model
-│   └── config.py         # Paths, gesture names, landmark indices
-├── tests/                # Unit tests (synthetic hands, fake input backend)
-├── data/                 # Your recorded landmark dataset (gestures.csv)
-├── models/               # Downloaded / trained models (git-ignored)
-├── reports/              # Generated metrics, confusion matrix, benchmark
-├── assets/               # Demo GIFs & images
-├── .github/workflows/    # CI: lint + tests
-└── pyproject.toml
-```
+Hand tracking takes about 8 ms per frame on an Apple M5 CPU and classification adds under 0.1 ms, so the frame rate is limited by the camera, not the model (`gesture-benchmark`).
+
+There is no accuracy table yet. The classifier is meant to be trained on the user's own recordings, and that dataset hasn't been recorded. Running `gesture-train` writes `reports/metrics.md` (accuracy, macro-F1, per-class report for rules vs. logistic regression vs. MLP) and `reports/confusion_matrix.png`.
 
 ## Getting started
 
 ```bash
 git clone https://github.com/haroonkhan02/hand-gesture-control.git
 cd hand-gesture-control
-
-# Python 3.10–3.12
 uv venv --python 3.12 && source .venv/bin/activate
-uv pip install -e ".[dev]"          # or: pip install -e ".[dev]"
+uv pip install -e ".[dev]"
 
-gesture-download-model              # fetches the MediaPipe hand model (~8 MB)
-gesture-control --mode mouse        # start (uses rule-based gestures until you train)
+gesture-download-model          # MediaPipe hand model (~8 MB)
+gesture-control --dry-run       # recognise gestures without moving the mouse
+gesture-control --mode mouse    # rule-based gestures until you train a model
 ```
 
-Try it safely first with `--dry-run` (recognizes gestures but doesn't move the mouse). You can also pass a video file: `--source clip.mp4`.
+`--source clip.mp4` runs on a video file instead of the webcam. On macOS the terminal needs Camera and Accessibility permissions (System Settings → Privacy & Security); Accessibility is what allows it to move the mouse and press keys.
 
-> **macOS:** allow your terminal under *System Settings → Privacy & Security* for **Camera** and **Accessibility** (Accessibility is needed to move the mouse and press keys).
-
-## Train your own gesture classifier
+Train a classifier on your own hand:
 
 ```bash
-# 1. Record each gesture (SPACE to start). Run each one 2+ times on different
-#    occasions so the evaluation can hold out a whole session.
-gesture-collect point --seconds 20
-gesture-collect pinch --seconds 20
-# ... open_palm, fist, peace, thumbs_up
-
-# 2. Train + evaluate (rules baseline vs. logistic regression vs. MLP)
-gesture-train
-
-# 3. Run with the trained model (picked up automatically)
-gesture-control
-
-# 4. Measure latency on your machine
-gesture-benchmark --frames 300
+gesture-collect point --seconds 20   # repeat for each gesture, on 2+ separate occasions
+gesture-train                        # rules vs. logistic regression vs. MLP
+gesture-control                      # picks up the trained model automatically
+gesture-benchmark --frames 300       # per-stage latency on your machine
 ```
 
-`gesture-train` writes `reports/metrics.md` (accuracy, macro-F1, per-class report, latency) and `reports/confusion_matrix.png`.
+Tests need no camera: `pytest` (47 tests) and `ruff check .`.
 
-**Why a session-level split?** Consecutive video frames are nearly identical. A random split puts near-duplicates of training frames into the test set and inflates accuracy. Holding out each gesture's most recent recording session measures how well the model generalizes to a *new* recording.
+## Repository structure
 
-## Results
-
-`gesture-train` and `gesture-benchmark` write their results to `reports/` (`metrics.md`, `confusion_matrix.png`, `benchmark.md`).
-
-## Testing
-
-```bash
-pytest          # 47 tests, no camera needed
-ruff check .
+```text
+hand-gesture-control/
+├── src/gesture_control/
+│   ├── app.py            # webcam loop, modes, HUD
+│   ├── tracking.py       # MediaPipe Hand Landmarker wrapper
+│   ├── features.py       # landmark normalisation, finger geometry
+│   ├── gestures.py       # rule-based and learned classifiers, debouncer
+│   ├── filters.py        # One Euro filter
+│   ├── controllers.py    # mouse and slide controllers, swipe detector
+│   ├── whiteboard.py     # air-drawing canvas
+│   ├── hud.py            # on-screen overlay, FPS counter
+│   ├── dataset.py        # landmark CSV read/write
+│   ├── collect.py        # record labelled samples
+│   ├── train.py          # train and evaluate classifiers
+│   ├── benchmark.py      # per-stage latency
+│   ├── download.py       # fetch the MediaPipe model
+│   └── config.py         # paths, gesture names, landmark indices
+├── tests/                # synthetic hand poses, fake input backend
+├── data/                 # your recorded landmarks (gestures.csv)
+├── models/               # downloaded and trained models (git-ignored)
+├── reports/              # metrics, confusion matrix, benchmark
+└── pyproject.toml
 ```
 
-## Future work
+## Design decisions
 
-- Dynamic gestures (e.g. circle to undo) with a small temporal model (GRU/TCN) over landmark sequences
-- Two-hand gestures (zoom/rotate)
-- Export the classifier to ONNX and run in the browser with MediaPipe JS
+| Decision | Why |
+|---|---|
+| Session-level train/test split | Consecutive frames are near-duplicates, so a random split leaks them into the test set. Holding out each gesture's latest recording session tests generalisation to a new recording. |
+| Cursor follows the index knuckle, not the fingertip | Pinching to click moves the fingertip; the knuckle stays put, so clicks land where you aimed. |
+| One Euro filter | Smooths heavily when the hand is still and lightly when it moves fast, removing jitter without adding lag. |
+| Rules baseline kept alongside the MLP | Works with no training data and gives the learned model something to beat. |
+| MediaPipe pinned to 0.10.21 | 1.0.x crashes on recent macOS (Metal graph service). |
+
+## Limitations and future work
+
+- No accuracy numbers until a gesture dataset is recorded, and a model trained on one person's hand may not transfer to others.
+- Static gestures only. Dynamic gestures (circle to undo) would need a small temporal model (GRU/TCN) over landmark sequences.
+- Two-hand gestures (zoom, rotate) and an ONNX export for running in the browser with MediaPipe JS.
 
 ## License
 
